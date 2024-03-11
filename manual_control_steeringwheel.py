@@ -341,24 +341,7 @@ class DualControl(object):
         K1 = 1.0  # 0.55
         steerCmd = K1 * math.tan(1.1 * jsInputs[self._steer_idx])
 
-        # K2 = 1.6  # 1.6
-        # throttleCmd = K2 + (2.05 * math.log10(
-        #     -0.7 * jsInputs[self._throttle_idx] + 1.4) - 1.2) / 0.92
-        # if throttleCmd <= 0:
-        #     throttleCmd = 0
-        # elif throttleCmd > 1:
-        #     throttleCmd = 1
-        #
-        # brakeCmd = 1.6 + (2.05 * math.log10(
-        #     -0.7 * jsInputs[self._brake_idx] + 1.4) - 1.2) / 0.92
-        # if brakeCmd <= 0:
-        #     brakeCmd = 0
-        # elif brakeCmd > 1:
-        #     brakeCmd = 1
-
         self._control.steer = steerCmd
-        # self._control.brake = brakeCmd
-        # self._control.throttle = throttleCmd
 
         #toggle = jsButtons[self._reverse_idx]
 
@@ -381,23 +364,19 @@ class DualControl(object):
         deltaThrottlePedal = jsInputs[self._throttle_idx]
         deltaBrakePedal = jsInputs[self._throttle_idx]
 
+        throttleCmd = 0.0000152592547 * jsInputs[self._throttle_idx]
 
-        K2 = 1.6  # 1.6
-        throttleCmd = K2 + (2.05 * math.log10(
-            -0.7 * jsInputs[self._throttle_idx] + 1.4) - 1.2) / 0.92
         if throttleCmd <= 0:
             throttleCmd = 0
         elif throttleCmd > 1:
             throttleCmd = 1
 
-        brakeCmd = 1.6 + (2.05 * math.log10(
-            -0.7 * jsInputs[self._brake_idx] + 1.4) - 1.2) / 0.92
+        brakeCmd = 0.0000152592547 * jsInputs[self._brake_idx]
         if brakeCmd <= 0:
             brakeCmd = 0
         elif brakeCmd > 1:
             brakeCmd = 1
 
-        brakeCmd = 0
         self._control.brake = brakeCmd
         self._control.throttle = throttleCmd
 
