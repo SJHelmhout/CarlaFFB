@@ -221,18 +221,21 @@ class DualControl(object):
 
         # initialize Joysticks
         pygame.joystick.init()
+        joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
+        for joystick in joysticks:
+            print(joystick.get_name())
 
-        # joystick_count = pygame.joystick.get_count()
-        # if joystick_count > 1:
-        #     raise ValueError("Please Connect Just One Joystick")
 
         # Steering wheel joystick
-        self._joystick = pygame.joystick.Joystick(0)
+        self._joystick_steering_wheel = pygame.joystick.Joystick(0)
         # Gear Shift joystick
-        self._joystick = pygame.joystick.Joystick(1)
+        self._joystick_gear_shift = pygame.joystick.Joystick(1)
         # Pedals joystick
-        self._joystick = pygame.joystick.Joystick(2)
-        self._joystick.init()
+        self._joystick_pedals = pygame.joystick.Joystick(2)
+
+        self._joystick_steering_wheel.init()
+        self._joystick_gear_shift.init()
+        self._joystick_pedals.init()
 
         self._parser = ConfigParser()
         self._parser.read('wheel_config.ini')
@@ -305,6 +308,8 @@ class DualControl(object):
             if isinstance(self._control, carla.VehicleControl):
                 self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
                 self._parse_vehicle_wheel()
+                self._parse_pedals()
+                self._parse_gear_shift()
                 self._control.reverse = self._control.gear < 0
             elif isinstance(self._control, carla.WalkerControl):
                 self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time())
@@ -325,16 +330,57 @@ class DualControl(object):
         self._control.hand_brake = keys[K_SPACE]
 
     def _parse_vehicle_wheel(self):
-        numAxes = self._joystick.get_numaxes()
-        jsInputs = [float(self._joystick.get_axis(i)) for i in range(numAxes)]
+        numAxes = self._joystick_steering_wheel.get_numaxes()
+        jsInputs = [float(self._joystick_steering_wheel.get_axis(i)) for i in range(numAxes)]
         # print (jsInputs)
-        jsButtons = [float(self._joystick.get_button(i)) for i in
-                     range(self._joystick.get_numbuttons())]
+        jsButtons = [float(self._joystick_steering_wheel.get_button(i)) for i in
+                     range(self._joystick_steering_wheel.get_numbuttons())]
 
         # Custom function to map range of inputs [1, -1] to outputs [0, 1] i.e 1 from inputs means nothing is pressed
         # For the steering, it seems fine as it is
         K1 = 1.0  # 0.55
         steerCmd = K1 * math.tan(1.1 * jsInputs[self._steer_idx])
+
+        # K2 = 1.6  # 1.6
+        # throttleCmd = K2 + (2.05 * math.log10(
+        #     -0.7 * jsInputs[self._throttle_idx] + 1.4) - 1.2) / 0.92
+        # if throttleCmd <= 0:
+        #     throttleCmd = 0
+        # elif throttleCmd > 1:
+        #     throttleCmd = 1
+        #
+        # brakeCmd = 1.6 + (2.05 * math.log10(
+        #     -0.7 * jsInputs[self._brake_idx] + 1.4) - 1.2) / 0.92
+        # if brakeCmd <= 0:
+        #     brakeCmd = 0
+        # elif brakeCmd > 1:
+        #     brakeCmd = 1
+
+        self._control.steer = steerCmd
+        # self._control.brake = brakeCmd
+        # self._control.throttle = throttleCmd
+
+        #toggle = jsButtons[self._reverse_idx]
+
+        self._control.hand_brake = bool(jsButtons[self._handbrake_idx])
+
+    def _parse_gear_shift(self):
+        numAxes = self._joystick_gear_shift.get_numaxes()
+        jsInputs = [float(self._joystick_gear_shift.get_axis(i)) for i in range(numAxes)]
+        # print (jsInputs)
+        jsButtons = [float(self._joystick_gear_shift.get_button(i)) for i in
+                     range(self._joystick_gear_shift.get_numbuttons())]
+
+    def _parse_pedals(self):
+        numAxes = self._joystick_pedals.get_numaxes()
+        jsInputs = [float(self._joystick_pedals.get_axis(i)) for i in range(numAxes)]
+        # print (jsInputs)
+        jsButtons = [float(self._joystick_pedals.get_button(i)) for i in
+                     range(self._joystick_pedals.get_numbuttons())]
+
+        deltaThrottlePedal = jsInputs[self._throttle_idx]
+        deltaBrakePedal = jsInputs[self._throttle_idx]
+
 
         K2 = 1.6  # 1.6
         throttleCmd = K2 + (2.05 * math.log10(
@@ -351,13 +397,9 @@ class DualControl(object):
         elif brakeCmd > 1:
             brakeCmd = 1
 
-        self._control.steer = steerCmd
+        brakeCmd = 0
         self._control.brake = brakeCmd
         self._control.throttle = throttleCmd
-
-        #toggle = jsButtons[self._reverse_idx]
-
-        self._control.hand_brake = bool(jsButtons[self._handbrake_idx])
 
     def _parse_walker_keys(self, keys, milliseconds):
         self._control.speed = 0.0
