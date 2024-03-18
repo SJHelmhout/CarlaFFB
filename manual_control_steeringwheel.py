@@ -339,7 +339,8 @@ class DualControl(object):
         # Custom function to map range of inputs [1, -1] to outputs [0, 1] i.e 1 from inputs means nothing is pressed
         # For the steering, it seems fine as it is
         K1 = 1.0  # 0.55
-        steerCmd = K1 * math.tan(1.1 * jsInputs[self._steer_idx])
+        # steerCmd = K1 * math.tan(1.1 * jsInputs[self._steer_idx])
+        steerCmd = jsInputs[self._steer_idx]
 
         self._control.steer = steerCmd
 
