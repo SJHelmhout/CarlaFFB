@@ -8,18 +8,16 @@
 # Allows controlling a vehicle with a keyboard. For a simpler and more
 # documented example, please take a look at tutorial.py.
 
+# Basis for this code is copied from the following link:
+# https://github.com/carla-simulator/carla/blob/master/PythonAPI/examples/manual_control_steeringwheel.py
+
+
 """
-Welcome to CARLA manual control with steering wheel Logitech G29.
-
-To drive start by preshing the brake pedal.
 Change your wheel_config.ini according to your steering wheel.
-
 To find out the values of your steering wheel use jstest-gtk in Ubuntu.
-
 """
 
 from __future__ import print_function
-
 
 # ==============================================================================
 # -- find carla module ---------------------------------------------------------
@@ -37,7 +35,6 @@ try:
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
 except IndexError:
     pass
-
 
 # ==============================================================================
 # -- imports -------------------------------------------------------------------
@@ -199,6 +196,7 @@ class World(object):
         if self.player is not None:
             self.player.destroy()
 
+
 # ==============================================================================
 # -- DualControl -----------------------------------------------------------
 # ==============================================================================
@@ -225,13 +223,12 @@ class DualControl(object):
         for joystick in joysticks:
             print(joystick.get_name())
 
-
         # Steering wheel joystick
         self._joystick_steering_wheel = pygame.joystick.Joystick(0)
         # Gear Shift joystick
-        self._joystick_gear_shift = pygame.joystick.Joystick(1)
+        self._joystick_gear_shift = pygame.joystick.Joystick(0)
         # Pedals joystick
-        self._joystick_pedals = pygame.joystick.Joystick(2)
+        self._joystick_pedals = pygame.joystick.Joystick(0)
 
         self._joystick_steering_wheel.init()
         self._joystick_gear_shift.init()
@@ -239,14 +236,18 @@ class DualControl(object):
 
         self._parser = ConfigParser()
         self._parser.read('wheel_config.ini')
-        self._steer_idx = int(
-            self._parser.get('T300 Steering Wheel', 'steering_wheel'))
-        self._throttle_idx = int(
-            self._parser.get('FANATEC ClubSportPedal', 'throttle'))
-        self._brake_idx = int(self._parser.get('FANATEC ClubSportPedal', 'brake'))
+        # self._steer_idx = int(
+        #     self._parser.get('T300 Steering Wheel', 'steering_wheel'))
+        # self._throttle_idx = int(
+        #     self._parser.get('FANATEC ClubSportPedal', 'throttle'))
+        # self._brake_idx = int(self._parser.get('FANATEC ClubSportPedal', 'brake'))
         self._reverse_idx = int(self._parser.get('T500 RS Gear Shift', 'reverse'))
         self._handbrake_idx = int(
             self._parser.get('G29 Racing Wheel', 'handbrake'))
+
+        self._steer_idx = int(self._parser.get('T300 RS GT Steering Wheel', 'steering_wheel'))
+        self._throttle_idx = int(self._parser.get('T300 RS GT Steering Wheel', 'throttle'))
+        self._brake_idx = int(self._parser.get('T300 RS GT Steering Wheel', 'brake'))
 
     def parse_events(self, world, clock):
         for event in pygame.event.get():
@@ -308,8 +309,8 @@ class DualControl(object):
             if isinstance(self._control, carla.VehicleControl):
                 self._parse_vehicle_keys(pygame.key.get_pressed(), clock.get_time())
                 self._parse_vehicle_wheel()
-                self._parse_pedals()
-                self._parse_gear_shift()
+                # self._parse_pedals()
+                # self._parse_gear_shift()
                 self._control.reverse = self._control.gear < 0
             elif isinstance(self._control, carla.WalkerControl):
                 self._parse_walker_keys(pygame.key.get_pressed(), clock.get_time())
@@ -343,8 +344,7 @@ class DualControl(object):
         steerCmd = jsInputs[self._steer_idx]
         self._control.steer = steerCmd
 
-        #toggle = jsButtons[self._reverse_idx]
-
+        # toggle = jsButtons[self._reverse_idx]
         self._control.hand_brake = bool(jsButtons[self._handbrake_idx])
 
     def _parse_gear_shift(self):
@@ -458,7 +458,7 @@ class HUD(object):
             'Map:     % 20s' % world.world.get_map().name.split('/')[-1],
             'Simulation time: % 12s' % datetime.timedelta(seconds=int(self.simulation_time)),
             '',
-            'Speed:   % 15.0f km/h' % (3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2)),
+            'Speed:   % 15.0f km/h' % (3.6 * math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)),
             u'Heading:% 16.0f\N{DEGREE SIGN} % 2s' % (t.rotation.yaw, heading),
             'Location:% 20s' % ('(% 5.1f, % 5.1f)' % (t.location.x, t.location.y)),
             'GNSS:% 24s' % ('(% 2.6f, % 3.6f)' % (world.gnss_sensor.lat, world.gnss_sensor.lon)),
@@ -485,7 +485,8 @@ class HUD(object):
             'Number of vehicles: % 8d' % len(vehicles)]
         if len(vehicles) > 1:
             self._info_text += ['Nearby vehicles:']
-            distance = lambda l: math.sqrt((l.x - t.location.x)**2 + (l.y - t.location.y)**2 + (l.z - t.location.z)**2)
+            distance = lambda l: math.sqrt(
+                (l.x - t.location.x) ** 2 + (l.y - t.location.y) ** 2 + (l.z - t.location.z) ** 2)
             vehicles = [(distance(x.get_location()), x) for x in vehicles if x.id != world.player.id]
             for d, vehicle in sorted(vehicles):
                 if d > 200.0:
@@ -631,7 +632,7 @@ class CollisionSensor(object):
         actor_type = get_actor_display_name(event.other_actor)
         self.hud.notification('Collision with %r' % actor_type)
         impulse = event.normal_impulse
-        intensity = math.sqrt(impulse.x**2 + impulse.y**2 + impulse.z**2)
+        intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
         self.history.append((event.frame, intensity))
         if len(self.history) > 4000:
             self.history.pop(0)
@@ -663,6 +664,7 @@ class LaneInvasionSensor(object):
         lane_types = set(x.type for x in event.crossed_lane_markings)
         text = ['%r' % str(x).split()[-1] for x in lane_types]
         self.hud.notification('Crossed line %s' % ' and '.join(text))
+
 
 # ==============================================================================
 # -- GnssSensor --------------------------------------------------------
@@ -715,7 +717,7 @@ class CameraManager(object):
             ['sensor.camera.depth', cc.LogarithmicDepth, 'Camera Depth (Logarithmic Gray Scale)'],
             ['sensor.camera.semantic_segmentation', cc.Raw, 'Camera Semantic Segmentation (Raw)'],
             ['sensor.camera.semantic_segmentation', cc.CityScapesPalette,
-                'Camera Semantic Segmentation (CityScapes Palette)'],
+             'Camera Semantic Segmentation (CityScapes Palette)'],
             ['sensor.lidar.ray_cast', None, 'Lidar (Ray-Cast)']]
         world = self._parent.get_world()
         bp_library = world.get_blueprint_library()
@@ -775,7 +777,7 @@ class CameraManager(object):
             lidar_data = np.array(points[:, :2])
             lidar_data *= min(self.hud.dim) / 100.0
             lidar_data += (0.5 * self.hud.dim[0], 0.5 * self.hud.dim[1])
-            lidar_data = np.fabs(lidar_data) # pylint: disable=E1111
+            lidar_data = np.fabs(lidar_data)  # pylint: disable=E1111
             lidar_data = lidar_data.astype(np.int32)
             lidar_data = np.reshape(lidar_data, (-1, 2))
             lidar_img_size = (self.hud.dim[0], self.hud.dim[1], 3)
@@ -890,5 +892,4 @@ def main():
 
 
 if __name__ == '__main__':
-
     main()
