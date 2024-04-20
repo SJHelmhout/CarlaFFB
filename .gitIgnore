@@ -1,3 +1,5 @@
 .venv
 /out
 .idea
+/_out
+/.idea
