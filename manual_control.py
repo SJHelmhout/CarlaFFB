@@ -4,6 +4,8 @@ import glob
 import os
 import sys
 
+import numpy
+
 from HUD.CameraManager import CameraManager
 from HUD.HUD import HUD
 from Helpers.HelperFunctions import find_weather_presets, get_actor_display_name
@@ -221,8 +223,8 @@ class World(object):
         self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
         self.gnss_sensor = GnssSensor(self.player)
         self.imu_sensor = IMUSensor(self.player)
-        self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
-        # self.camera_manager = CameraManager(self.player, self.hud)
+        # self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
+        self.camera_manager = CameraManager(self.player, self.hud)
         self.camera_manager.transform_index = cam_pos_index
         self.camera_manager.set_sensor(cam_index, notify=False)
         actor_type = get_actor_display_name(self.player)
@@ -520,6 +522,7 @@ class KeyboardControl(object):
                 # Apply control
                 if not self._ackermann_enabled:
                     world.player.apply_control(self._control)
+                    self._calculate_slip_angle(world)
                 else:
                     world.player.apply_ackermann_control(self._ackermann_control)
                     # Update control to the last one applied by the ackermann controller.
@@ -544,7 +547,8 @@ class KeyboardControl(object):
             if not self._ackermann_enabled:
                 self._control.brake = min(self._control.brake + 0.2, 1)
             else:
-                self._ackermann_control.speed -= min(abs(self._ackermann_control.speed), round(milliseconds * 0.005, 2)) * self._ackermann_reverse
+                self._ackermann_control.speed -= min(abs(self._ackermann_control.speed),
+                                                     round(milliseconds * 0.005, 2)) * self._ackermann_reverse
                 self._ackermann_control.speed = max(0, abs(self._ackermann_control.speed)) * self._ackermann_reverse
         else:
             if not self._ackermann_enabled:
@@ -585,6 +589,25 @@ class KeyboardControl(object):
         self._control.jump = keys[K_SPACE]
         self._rotation.yaw = round(self._rotation.yaw, 1)
         self._control.direction = self._rotation.get_forward_vector()
+
+    def _calculate_slip_angle(self, world):
+        ego_vel_vect = world.player.get_velocity()
+        trans_mat = numpy.array(world.player.get_transform().get_matrix()).reshape(4, 4)
+        rot_mat = trans_mat[0:3, 0:3]
+        inv_rot_mat = rot_mat.T
+        vel_vec = numpy.array([ego_vel_vect.x,
+                               ego_vel_vect.y,
+                               ego_vel_vect.z]).reshape(3, 1)
+        vel_in_v = inv_rot_mat @ vel_vec
+        longitudinal_velocity = vel_in_v.item(0)
+        lateral_velocity = vel_in_v.item(1)
+        print("Longitudinal (forward): %f \n Lateral (sideways): %f" % (longitudinal_velocity, lateral_velocity))
+        # Slip angle is in rads
+        if longitudinal_velocity != 0:
+            slip_angle = -math.atan((lateral_velocity / longitudinal_velocity))
+        else:
+            slip_angle = 0
+        print("Slip angle: %f" % math.degrees(slip_angle))
 
     @staticmethod
     def _is_quit_shortcut(key):

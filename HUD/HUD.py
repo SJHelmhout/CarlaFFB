@@ -5,8 +5,8 @@ import os
 import carla
 import pygame
 
-from HUD.FadingText import FadingText
-from HUD.HelpText import HelpText
+from HUD.Text.FadingText import FadingText
+from HUD.Text.HelpText import HelpText
 from Helpers.HelperFunctions import get_actor_display_name
 
 
