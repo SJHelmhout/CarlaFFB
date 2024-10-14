@@ -20,7 +20,6 @@ To find out the values of your steering wheel use jstest-gtk in Ubuntu.
 
 from __future__ import print_function
 
-
 # ==============================================================================
 # -- find carla module ---------------------------------------------------------
 # ==============================================================================
@@ -37,7 +36,6 @@ try:
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
 except IndexError:
     pass
-
 
 # ==============================================================================
 # -- imports -------------------------------------------------------------------
@@ -67,7 +65,7 @@ else:
 
 try:
     import pygame
-    from pygame.locals import KMOD_CTRL
+    from pygame.locals import KMOD_CTRL, K_t
     from pygame.locals import KMOD_SHIFT
     from pygame.locals import K_0
     from pygame.locals import K_9
@@ -199,6 +197,7 @@ class World(object):
         if self.player is not None:
             self.player.destroy()
 
+
 # ==============================================================================
 # -- DualControl -----------------------------------------------------------
 # ==============================================================================
@@ -224,14 +223,24 @@ class DualControl(object):
         joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
         for joystick in joysticks:
             print(joystick.get_name())
-
+            print(joystick.get_id())
+            # if joystick.get_name() == 'Thrustmaster T300RS Racing wheel':
+            if 'wheel' in joystick.get_name().lower():
+                self._joystick_steering_wheel = pygame.joystick.Joystick(joystick.get_id())
+            # elif joystick.get_name() == 'Thustmaster T500 RS Gear Shift':
+            elif 'gear' in joystick.get_name().lower():
+                self._joystick_gear_shift = pygame.joystick.Joystick(joystick.get_id())
+            elif 'pedal' in joystick.get_name().lower():
+                self._joystick_pedals = pygame.joystick.Joystick(joystick.get_id())
+            else:
+                raise IndexError("Unknown joystick, cannot assign a fitting controller")
 
         # Steering wheel joystick
-        self._joystick_steering_wheel = pygame.joystick.Joystick(0)
+        # self._joystick_steering_wheel = pygame.joystick.Joystick(0)
         # Gear Shift joystick
-        self._joystick_gear_shift = pygame.joystick.Joystick(1)
+        # self._joystick_gear_shift = pygame.joystick.Joystick(1)
         # Pedals joystick
-        self._joystick_pedals = pygame.joystick.Joystick(2)
+        # self._joystick_pedals = pygame.joystick.Joystick(2)
 
         self._joystick_steering_wheel.init()
         self._joystick_gear_shift.init()
@@ -287,6 +296,8 @@ class DualControl(object):
                     world.camera_manager.set_sensor(event.key - 1 - K_0)
                 elif event.key == K_r:
                     world.camera_manager.toggle_recording()
+                elif event.key == K_t:
+                    world.player.show_debug_telemetry(True)
                 if isinstance(self._control, carla.VehicleControl):
                     if event.key == K_q:
                         self._control.gear = 1 if self._control.reverse else -1
@@ -336,14 +347,23 @@ class DualControl(object):
         jsButtons = [float(self._joystick_steering_wheel.get_button(i)) for i in
                      range(self._joystick_steering_wheel.get_numbuttons())]
 
+        # Debugging statement
+        # print(jsInputs)
+
         # Custom function to map range of inputs [1, -1] to outputs [0, 1] i.e 1 from inputs means nothing is pressed
         # For the steering, it seems fine as it is
         # K1 = 1.0  # 0.55
         # steerCmd = K1 * math.tan(1.1 * jsInputs[self._steer_idx])
         steerCmd = jsInputs[self._steer_idx]
+        # Rekening houdend met de (mis)kalibratie van het stuur
+        if steerCmd > 0.3:
+            steerCmd -= 0.3
+        elif steerCmd < -0.3:
+            steerCmd += 0.3
+        print(steerCmd)
         self._control.steer = steerCmd
 
-        #toggle = jsButtons[self._reverse_idx]
+        # toggle = jsButtons[self._reverse_idx]
 
         self._control.hand_brake = bool(jsButtons[self._handbrake_idx])
 
@@ -458,7 +478,7 @@ class HUD(object):
             'Map:     % 20s' % world.world.get_map().name.split('/')[-1],
             'Simulation time: % 12s' % datetime.timedelta(seconds=int(self.simulation_time)),
             '',
-            'Speed:   % 15.0f km/h' % (3.6 * math.sqrt(v.x**2 + v.y**2 + v.z**2)),
+            'Speed:   % 15.0f km/h' % (3.6 * math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2)),
             u'Heading:% 16.0f\N{DEGREE SIGN} % 2s' % (t.rotation.yaw, heading),
             'Location:% 20s' % ('(% 5.1f, % 5.1f)' % (t.location.x, t.location.y)),
             'GNSS:% 24s' % ('(% 2.6f, % 3.6f)' % (world.gnss_sensor.lat, world.gnss_sensor.lon)),
@@ -485,7 +505,8 @@ class HUD(object):
             'Number of vehicles: % 8d' % len(vehicles)]
         if len(vehicles) > 1:
             self._info_text += ['Nearby vehicles:']
-            distance = lambda l: math.sqrt((l.x - t.location.x)**2 + (l.y - t.location.y)**2 + (l.z - t.location.z)**2)
+            distance = lambda l: math.sqrt(
+                (l.x - t.location.x) ** 2 + (l.y - t.location.y) ** 2 + (l.z - t.location.z) ** 2)
             vehicles = [(distance(x.get_location()), x) for x in vehicles if x.id != world.player.id]
             for d, vehicle in sorted(vehicles):
                 if d > 200.0:
@@ -631,7 +652,7 @@ class CollisionSensor(object):
         actor_type = get_actor_display_name(event.other_actor)
         self.hud.notification('Collision with %r' % actor_type)
         impulse = event.normal_impulse
-        intensity = math.sqrt(impulse.x**2 + impulse.y**2 + impulse.z**2)
+        intensity = math.sqrt(impulse.x ** 2 + impulse.y ** 2 + impulse.z ** 2)
         self.history.append((event.frame, intensity))
         if len(self.history) > 4000:
             self.history.pop(0)
@@ -663,6 +684,7 @@ class LaneInvasionSensor(object):
         lane_types = set(x.type for x in event.crossed_lane_markings)
         text = ['%r' % str(x).split()[-1] for x in lane_types]
         self.hud.notification('Crossed line %s' % ' and '.join(text))
+
 
 # ==============================================================================
 # -- GnssSensor --------------------------------------------------------
@@ -715,7 +737,7 @@ class CameraManager(object):
             ['sensor.camera.depth', cc.LogarithmicDepth, 'Camera Depth (Logarithmic Gray Scale)'],
             ['sensor.camera.semantic_segmentation', cc.Raw, 'Camera Semantic Segmentation (Raw)'],
             ['sensor.camera.semantic_segmentation', cc.CityScapesPalette,
-                'Camera Semantic Segmentation (CityScapes Palette)'],
+             'Camera Semantic Segmentation (CityScapes Palette)'],
             ['sensor.lidar.ray_cast', None, 'Lidar (Ray-Cast)']]
         world = self._parent.get_world()
         bp_library = world.get_blueprint_library()
@@ -775,7 +797,7 @@ class CameraManager(object):
             lidar_data = np.array(points[:, :2])
             lidar_data *= min(self.hud.dim) / 100.0
             lidar_data += (0.5 * self.hud.dim[0], 0.5 * self.hud.dim[1])
-            lidar_data = np.fabs(lidar_data) # pylint: disable=E1111
+            lidar_data = np.fabs(lidar_data)  # pylint: disable=E1111
             lidar_data = lidar_data.astype(np.int32)
             lidar_data = np.reshape(lidar_data, (-1, 2))
             lidar_img_size = (self.hud.dim[0], self.hud.dim[1], 3)
@@ -890,5 +912,4 @@ def main():
 
 
 if __name__ == '__main__':
-
     main()

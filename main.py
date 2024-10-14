@@ -232,10 +232,13 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
     for name in evdev.list_devices():
         dev = InputDevice(name)
+        # print(dev)
+        # print(dev.capabilities(verbose=True))
         if ecodes.EV_FF in dev.capabilities():
+            print("ja")
             break
 
     # print(dev.capabilities(verbose="true"))
