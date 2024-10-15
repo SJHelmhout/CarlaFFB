@@ -21,8 +21,11 @@ To find out the values of your steering wheel use jstest-gtk in Ubuntu.
 from __future__ import print_function
 
 import glob
+import math
 import os
 import sys
+
+import numpy
 
 # ==============================================================================
 # -- find carla module ---------------------------------------------------------
@@ -284,6 +287,7 @@ class DualControl(object):
                 self._parse_pedals()
                 self._parse_gear_shift()
                 self._control.reverse = self._control.gear < 0
+                self._calculate_slip_angle(world)
             world.player.apply_control(self._control)
 
     def _parse_vehicle_keys(self, keys, milliseconds):
@@ -332,6 +336,98 @@ class DualControl(object):
 
         self._control.brake = brakeCmd
         self._control.throttle = throttleCmd
+
+    def _calculate_slip_angle(self, world):
+        ego_vel_vect = world.player.get_velocity()
+        trans_mat = numpy.array(world.player.get_transform().get_matrix()).reshape(4, 4)
+        rot_mat = trans_mat[0:3, 0:3]
+        inv_rot_mat = rot_mat.T
+        vel_vec = numpy.array([ego_vel_vect.x,
+                               ego_vel_vect.y,
+                               ego_vel_vect.z]).reshape(3, 1)
+        vel_in_v = inv_rot_mat @ vel_vec
+        longitudinal_velocity = vel_in_v.item(0)
+        lateral_velocity = vel_in_v.item(1)
+        print("Longitudinal (forward): %f \n Lateral (sideways): %f" % (longitudinal_velocity, lateral_velocity))
+        # Slip angle is in rads
+        if longitudinal_velocity != 0:
+            slip_angle = -math.atan((lateral_velocity / longitudinal_velocity))
+        else:
+            slip_angle = 0
+        print("Slip angle: %f" % math.degrees(slip_angle))
+        return slip_angle
+
+    # def _calculate_slip_ratio(self, world):
+    #     road_condition = 'Dry Tarmac'
+    #     vehicle_physics = world.player.get_physics_control()
+    #     mass = vehicle_physics.mass
+    #     gravity = 9.81
+    #     parser = ConfigParser()
+    #     parser.read('Magic_Formula_Config.ini')
+    #     B = float(self.parser.get(road_condition, 'B'))
+    #     C = float(self.parser.get(road_condition, 'C'))
+    #     D = float(self.parser.get(road_condition, 'D'))
+    #     E = float(self.parser.get(road_condition, 'E'))
+    #     friction_coeff = D * np.sin(C * np.arctan(B * (1 - E) * (wheel_slip)) + (E / B * np.arctan(B * (wheel_slip))))
+    #     longitudinal_force = - friction_coeff * mass * gravity
+
+    # def _calc_align_moment(self, world):
+    #     front_lateral = 0
+    #     normal_load = world.player.get_physics_control().mass * 9.81
+    #     camber = 0
+    #     slip_angle = np.degrees(self._calculate_slip_angle(world))
+    #     a1 = -2.72
+    #     a2 = -2.28
+    #     a3 = -1.86
+    #     a4 = -2.73
+    #     a5 = 0.110
+    #     a6 = -0.070
+    #     a7 = 0.643
+    #     a8 = -4.04
+    #     a9 = 0.015
+    #     a10 = -0.066
+    #     a11 = 0.945
+    #     a12 = 0.030
+    #     a13 = 0.070
+    #     c = 2.4
+    #     d = a1 * math.pow(normal_load, 2) + a2 * normal_load
+    #     # bcd = a3 * np.sin(a4 * np.arctan(a5 * mass))
+    #     bcd = (a3 * math.pow(normal_load, 2) + a4 * normal_load) / math.pow(np.e, (a5 * normal_load))
+    #     b = bcd / c * d
+    #     e = a6 * math.pow(normal_load, 2) + a7 * normal_load + a8
+    #
+    #     sh = a9 * camber
+    #     sv = (a10 * math.pow(normal_load, 2) + a11 * normal_load) * camber
+    #     delta_b = -a12 * abs(camber) * b
+    #     delta_e = (e / 1 - a13 * abs(camber)) - e
+    #
+    #     phi = (1 - e) * (slip_angle + sh) + (e / b) * np.arctan(b * (slip_angle + sh))
+    #     return d * np.sin(c * np.arctan(b * phi)) + sv
+
+    def _calc_front_lateral(self, world):
+        tire_cornering_stiffness = 0
+        surface_friction_coefficient = 0
+        normal_load = world.player.get_physics_control().mass
+        slip_angle = self._calculate_slip_angle(world)
+        first_part = -tire_cornering_stiffness * np.tan(slip_angle)
+        second_part = (math.pow(tire_cornering_stiffness, 2) / 3 * surface_friction_coefficient * normal_load)
+        third_part = np.tan(slip_angle) * abs(np.tan(slip_angle))
+        fourth_part = (
+                    math.pow(tire_cornering_stiffness, 3) / 27 * math.pow((surface_friction_coefficient * normal_load),
+                                                                          2))
+        fifth_part = math.pow(np.tan(slip_angle), 3)
+        return first_part + second_part * third_part - fourth_part * fifth_part
+
+    # def _calc_pneumatic_trail(self, world):
+    #     pneumatic_trail_zero_slip = 0
+    #     tire_cornering_stiffness = 0
+    #     surface_friction_coefficient = 0
+    #     front_normal_load = world.player.get_physics_control().mass / 2
+    #
+    #     slip_angle = self._calculate_slip_angle(world)
+    #     return (pneumatic_trail_zero_slip - np.sign(slip_angle) *
+    #             ((pneumatic_trail_zero_slip * tire_cornering_stiffness) /
+    #              3 * surface_friction_coefficient * front_normal_load) * np.tan(slip_angle))
 
     @staticmethod
     def _is_quit_shortcut(key):

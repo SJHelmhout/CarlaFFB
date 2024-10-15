@@ -232,16 +232,19 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # main()
     for name in evdev.list_devices():
         dev = InputDevice(name)
-        if ecodes.EV_FF in dev.capabilities():
-            break
+        print(dev.name)
+        print(dev)
+        # print(dev.capabilities(verbose=True))
+        # if ecodes.EV_FF in dev.capabilities():
+        #     break
 
     # print(dev.capabilities(verbose="true"))
-    # print(dev.name)
+    print(dev.name)
 
-    # Set gain of FFB
+    # #Set gain of FFB
     # gain = 100
     # ui = UInput()
     # gain_event = InputEvent(
@@ -253,11 +256,11 @@ if __name__ == '__main__':
     # )
     # ui.write_event(gain_event)
     # ui.syn()
-    #
-    # # Create and send Rumble FFB effect to wheel
+
+    # Create and send Rumble FFB effect to wheel
     # rumble = ff.Rumble(strong_magnitude=0xffff, weak_magnitude=0xffff)
     # effect_type = ff.EffectType(ff_rumble_effect=rumble)
-    # duration_ms = 5000
+    # duration_ms = 6000
     #
     # effect = ff.Effect(
     #     ecodes.FF_RUMBLE, -1, -1,

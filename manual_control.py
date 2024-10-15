@@ -524,7 +524,7 @@ class KeyboardControl(object):
                 if not self._ackermann_enabled:
                     world.player.apply_control(self._control)
                     self._calculate_slip_angle(world)
-                    self._calculate_slip_ratio(world)
+                    # self._calculate_slip_ratio(world)
                 else:
                     world.player.apply_ackermann_control(self._ackermann_control)
                     # Update control to the last one applied by the ackermann controller.
@@ -603,7 +603,7 @@ class KeyboardControl(object):
         vel_in_v = inv_rot_mat @ vel_vec
         longitudinal_velocity = vel_in_v.item(0)
         lateral_velocity = vel_in_v.item(1)
-        print("Longitudinal (forward): %f \n Lateral (sideways): %f" % (longitudinal_velocity, lateral_velocity))
+        print("Longitudinal velocity (forward): %f \n Lateral velocity (sideways): %f" % (longitudinal_velocity, lateral_velocity))
         # Slip angle is in rads
         if longitudinal_velocity != 0:
             slip_angle = -math.atan((lateral_velocity / longitudinal_velocity))
