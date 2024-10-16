@@ -24,8 +24,11 @@ import glob
 import math
 import os
 import sys
+import time
 
+import evdev
 import numpy
+from evdev import ff, ecodes, InputDevice
 
 # ==============================================================================
 # -- find carla module ---------------------------------------------------------
@@ -362,6 +365,7 @@ class DualControl(object):
         else:
             slip_angle = 0
         print("Slip angle: %f" % math.degrees(slip_angle))
+        self._ffb1(slip_angle)
         return slip_angle
 
     # def _calculate_slip_ratio(self, world):
@@ -424,6 +428,33 @@ class DualControl(object):
                                                                           2))
         fifth_part = math.pow(np.tan(slip_angle), 3)
         return first_part + second_part * third_part - fourth_part * fifth_part
+
+    def _ffb1(self, slip_angle):
+        for name in evdev.list_devices():
+            dev = InputDevice(name)
+            print(dev.name)
+            print(dev)
+            # print(dev.capabilities(verbose=True))
+            if ecodes.EV_FF in dev.capabilities():
+                break
+        # Create and send Rumble FFB effect to wheel
+        rumble = ff.Rumble(strong_magnitude=0xffff, weak_magnitude=0xffff)
+        effect_type = ff.EffectType(ff_rumble_effect=rumble)
+        duration_ms = 6000
+
+        effect = ff.Effect(
+            ecodes.FF_RUMBLE, -1, -1,
+            ff.Trigger(0, 0),
+            ff.Replay(duration_ms, 0),
+            ff.EffectType(ff_rumble_effect=rumble)
+        )
+        repeat_count = 1
+        slip_angle = int(slip_angle)
+        # if slip_angle >= 20| slip_angle <= -20:
+        effect_id = dev.upload_effect(effect)
+        dev.write(ecodes.EV_FF, effect_id, repeat_count)
+        # time.sleep(duration_ms / 1000)
+        # dev.erase_effect(effect_id)
 
     # def _calc_pneumatic_trail(self, world):
     #     pneumatic_trail_zero_slip = 0
