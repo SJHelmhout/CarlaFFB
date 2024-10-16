@@ -201,13 +201,20 @@ class DualControl(object):
         joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
         for joystick in joysticks:
             print(joystick.get_name())
+            print(joystick.get_id())
+            if joystick.get_name().__contains__("wheel"):
+                wheel_id = joystick.get_id()
+            elif joystick.get_name().lower().__contains__("pedal"):
+                pedal_id = joystick.get_id()
+            else:
+                gear_shift_id = joystick.get_id()
 
         # Steering wheel joystick
-        self._joystick_steering_wheel = pygame.joystick.Joystick(0)
+        self._joystick_steering_wheel = pygame.joystick.Joystick(wheel_id)
         # Gear Shift joystick
-        self._joystick_gear_shift = pygame.joystick.Joystick(1)
+        self._joystick_gear_shift = pygame.joystick.Joystick(gear_shift_id)
         # Pedals joystick
-        self._joystick_pedals = pygame.joystick.Joystick(2)
+        self._joystick_pedals = pygame.joystick.Joystick(pedal_id)
 
         self._joystick_steering_wheel.init()
         self._joystick_gear_shift.init()
