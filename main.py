@@ -237,13 +237,18 @@ if __name__ == '__main__':
         dev = InputDevice(name)
         print(dev.name)
         print(dev)
-        # print(dev.capabilities(verbose=True))
-        # if ecodes.EV_FF in dev.capabilities():
-        #     break
-
-    # print(dev.capabilities(verbose="true"))
-    print(dev.name)
-
+    #     # print(dev.capabilities(verbose=True))
+    #     # if ecodes.EV_FF in dev.capabilities():
+    #     #     break
+    #
+    # # print(dev.capabilities(verbose="true"))
+    # # print(dev.name)
+    # Autocenter effect
+    # val = 65535
+    # dev.write(ecodes.EV_FF, ecodes.FF_AUTOCENTER, val)
+    #
+    # val = 0
+    # dev.write(ecodes.EV_FF, ecodes.FF_FRICTION, val)
     # #Set gain of FFB
     # gain = 100
     # ui = UInput()

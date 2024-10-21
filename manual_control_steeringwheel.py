@@ -198,13 +198,16 @@ class DualControl(object):
             raise NotImplementedError("Actor type not supported")
         self._steer_cache = 0.0
         world.hud.notification("Press 'H' or '?' for help.", seconds=4.0)
+        for name in evdev.list_devices():
+            dev = InputDevice(name)
+            if ecodes.EV_FF in dev.capabilities():
+                break
+        self._steering_wheel_device = dev
 
         # initialize Joysticks
         pygame.joystick.init()
         joysticks = [pygame.joystick.Joystick(x) for x in range(pygame.joystick.get_count())]
         for joystick in joysticks:
-            print(joystick.get_name())
-            print(joystick.get_id())
             if joystick.get_name().__contains__("wheel"):
                 wheel_id = joystick.get_id()
             elif joystick.get_name().lower().__contains__("pedal"):
@@ -320,14 +323,7 @@ class DualControl(object):
         # print (jsInputs)
         jsButtons = [float(self._joystick_steering_wheel.get_button(i)) for i in
                      range(self._joystick_steering_wheel.get_numbuttons())]
-
-        # Custom function to map range of inputs [1, -1] to outputs [0, 1] i.e 1 from inputs means nothing is pressed
-        # For the steering, it seems fine as it is
-        # K1 = 1.0  # 0.55
-        # steerCmd = K1 * math.tan(1.1 * jsInputs[self._steer_idx])
-
         self._control.steer = jsInputs[self._steer_idx]
-        # toggle = jsButtons[self._reverse_idx]
         self._control.hand_brake = bool(jsButtons[self._handbrake_idx])
 
     def _parse_gear_shift(self):
@@ -365,107 +361,20 @@ class DualControl(object):
         else:
             slip_angle = 0
         print("Slip angle: %f" % math.degrees(slip_angle))
-        self._ffb1(slip_angle)
+        self._ffb1(math.degrees(slip_angle))
         return slip_angle
 
-    # def _calculate_slip_ratio(self, world):
-    #     road_condition = 'Dry Tarmac'
-    #     vehicle_physics = world.player.get_physics_control()
-    #     mass = vehicle_physics.mass
-    #     gravity = 9.81
-    #     parser = ConfigParser()
-    #     parser.read('Magic_Formula_Config.ini')
-    #     B = float(self.parser.get(road_condition, 'B'))
-    #     C = float(self.parser.get(road_condition, 'C'))
-    #     D = float(self.parser.get(road_condition, 'D'))
-    #     E = float(self.parser.get(road_condition, 'E'))
-    #     friction_coeff = D * np.sin(C * np.arctan(B * (1 - E) * (wheel_slip)) + (E / B * np.arctan(B * (wheel_slip))))
-    #     longitudinal_force = - friction_coeff * mass * gravity
-
-    # def _calc_align_moment(self, world):
-    #     front_lateral = 0
-    #     normal_load = world.player.get_physics_control().mass * 9.81
-    #     camber = 0
-    #     slip_angle = np.degrees(self._calculate_slip_angle(world))
-    #     a1 = -2.72
-    #     a2 = -2.28
-    #     a3 = -1.86
-    #     a4 = -2.73
-    #     a5 = 0.110
-    #     a6 = -0.070
-    #     a7 = 0.643
-    #     a8 = -4.04
-    #     a9 = 0.015
-    #     a10 = -0.066
-    #     a11 = 0.945
-    #     a12 = 0.030
-    #     a13 = 0.070
-    #     c = 2.4
-    #     d = a1 * math.pow(normal_load, 2) + a2 * normal_load
-    #     # bcd = a3 * np.sin(a4 * np.arctan(a5 * mass))
-    #     bcd = (a3 * math.pow(normal_load, 2) + a4 * normal_load) / math.pow(np.e, (a5 * normal_load))
-    #     b = bcd / c * d
-    #     e = a6 * math.pow(normal_load, 2) + a7 * normal_load + a8
-    #
-    #     sh = a9 * camber
-    #     sv = (a10 * math.pow(normal_load, 2) + a11 * normal_load) * camber
-    #     delta_b = -a12 * abs(camber) * b
-    #     delta_e = (e / 1 - a13 * abs(camber)) - e
-    #
-    #     phi = (1 - e) * (slip_angle + sh) + (e / b) * np.arctan(b * (slip_angle + sh))
-    #     return d * np.sin(c * np.arctan(b * phi)) + sv
-
-    def _calc_front_lateral(self, world):
-        tire_cornering_stiffness = 0
-        surface_friction_coefficient = 0
-        normal_load = world.player.get_physics_control().mass
-        slip_angle = self._calculate_slip_angle(world)
-        first_part = -tire_cornering_stiffness * np.tan(slip_angle)
-        second_part = (math.pow(tire_cornering_stiffness, 2) / 3 * surface_friction_coefficient * normal_load)
-        third_part = np.tan(slip_angle) * abs(np.tan(slip_angle))
-        fourth_part = (
-                    math.pow(tire_cornering_stiffness, 3) / 27 * math.pow((surface_friction_coefficient * normal_load),
-                                                                          2))
-        fifth_part = math.pow(np.tan(slip_angle), 3)
-        return first_part + second_part * third_part - fourth_part * fifth_part
 
     def _ffb1(self, slip_angle):
-        for name in evdev.list_devices():
-            dev = InputDevice(name)
-            print(dev.name)
-            print(dev)
-            # print(dev.capabilities(verbose=True))
-            if ecodes.EV_FF in dev.capabilities():
-                break
-        # Create and send Rumble FFB effect to wheel
-        rumble = ff.Rumble(strong_magnitude=0xffff, weak_magnitude=0xffff)
-        effect_type = ff.EffectType(ff_rumble_effect=rumble)
-        duration_ms = 6000
-
-        effect = ff.Effect(
-            ecodes.FF_RUMBLE, -1, -1,
-            ff.Trigger(0, 0),
-            ff.Replay(duration_ms, 0),
-            ff.EffectType(ff_rumble_effect=rumble)
-        )
-        repeat_count = 1
+        # Autocenter effect max is 65532
         slip_angle = int(slip_angle)
-        # if slip_angle >= 20| slip_angle <= -20:
-        effect_id = dev.upload_effect(effect)
-        dev.write(ecodes.EV_FF, effect_id, repeat_count)
-        # time.sleep(duration_ms / 1000)
-        # dev.erase_effect(effect_id)
-
-    # def _calc_pneumatic_trail(self, world):
-    #     pneumatic_trail_zero_slip = 0
-    #     tire_cornering_stiffness = 0
-    #     surface_friction_coefficient = 0
-    #     front_normal_load = world.player.get_physics_control().mass / 2
-    #
-    #     slip_angle = self._calculate_slip_angle(world)
-    #     return (pneumatic_trail_zero_slip - np.sign(slip_angle) *
-    #             ((pneumatic_trail_zero_slip * tire_cornering_stiffness) /
-    #              3 * surface_friction_coefficient * front_normal_load) * np.tan(slip_angle))
+        print(slip_angle)
+        if slip_angle >= 20 | slip_angle <= -20:
+            val = 0
+            self._steering_wheel_device.write(ecodes.EV_FF, ecodes.FF_AUTOCENTER, val)
+        else:
+            val = 32000
+            self._steering_wheel_device.write(ecodes.EV_FF, ecodes.FF_AUTOCENTER, val)
 
     @staticmethod
     def _is_quit_shortcut(key):
