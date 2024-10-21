@@ -369,7 +369,7 @@ class DualControl(object):
         # Autocenter effect max is 65532
         slip_angle = int(slip_angle)
         print(slip_angle)
-        if slip_angle >= 20 | slip_angle <= -20:
+        if slip_angle >= 20 or slip_angle <= -20:
             val = 0
             self._steering_wheel_device.write(ecodes.EV_FF, ecodes.FF_AUTOCENTER, val)
         else:
