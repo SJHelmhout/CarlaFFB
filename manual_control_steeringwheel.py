@@ -337,6 +337,7 @@ class DualControl(object):
         jsInputs = [float(self._joystick_pedals.get_axis(i)) for i in range(numAxes)]
 
         # throttleCmd = 0.0000152592547 * jsInputs[self._throttle_idx]
+        print(jsInputs[self._brake_idx])
         throttleCmd = (1 + jsInputs[self._throttle_idx]) / 2
         brakeCmd = (1 + jsInputs[self._brake_idx]) / 2
 
@@ -369,7 +370,7 @@ class DualControl(object):
         # Autocenter effect max is 65532
         slip_angle = int(slip_angle)
         print(slip_angle)
-        if slip_angle >= 20 | slip_angle <= -20:
+        if slip_angle >= 20 or slip_angle <= -20:
             val = 0
             self._steering_wheel_device.write(ecodes.EV_FF, ecodes.FF_AUTOCENTER, val)
         else:
