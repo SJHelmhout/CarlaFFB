@@ -341,6 +341,9 @@ class DualControl(object):
         throttleCmd = (1 + jsInputs[self._throttle_idx]) / 2
         brakeCmd = (1 + jsInputs[self._brake_idx]) / 2
 
+        if brakeCmd <= 0.005:
+            brakeCmd = 0
+
         self._control.brake = brakeCmd
         self._control.throttle = throttleCmd
 
