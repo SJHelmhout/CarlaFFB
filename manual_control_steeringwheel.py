@@ -340,6 +340,9 @@ class DualControl(object):
         throttleCmd = (1 + jsInputs[self._throttle_idx]) / 2
         brakeCmd = (1 + jsInputs[self._brake_idx]) / 2
 
+        if brakeCmd <= 0.0015:
+            brakeCmd = 0
+
         self._control.brake = brakeCmd
         self._control.throttle = throttleCmd
 
@@ -361,20 +364,22 @@ class DualControl(object):
         else:
             slip_angle = 0
         print("Slip angle: %f" % math.degrees(slip_angle))
-        self._ffb1(math.degrees(slip_angle))
+        self._ffb1(longitudinal_velocity)
         return slip_angle
 
 
-    def _ffb1(self, slip_angle):
+    def _ffb1(self, longitudinal_velocity):
         # Autocenter effect max is 65532
-        slip_angle = int(slip_angle)
-        print(slip_angle)
-        if slip_angle >= 20 or slip_angle <= -20:
-            val = 0
-            self._steering_wheel_device.write(ecodes.EV_FF, ecodes.FF_AUTOCENTER, val)
-        else:
-            val = 32000
-            self._steering_wheel_device.write(ecodes.EV_FF, ecodes.FF_AUTOCENTER, val)
+        longitudinal_velocity *= 3.6
+        longitudinal_velocity = int(longitudinal_velocity)
+        print(longitudinal_velocity)
+        autocenter_value = int(1311 * longitudinal_velocity)
+        if autocenter_value > 65532:
+            autocenter_value = 65532
+        elif autocenter_value < 0:
+            autocenter_value = 0
+        self._steering_wheel_device.write(ecodes.EV_FF, ecodes.FF_AUTOCENTER, autocenter_value)
+
 
     @staticmethod
     def _is_quit_shortcut(key):
